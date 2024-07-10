@@ -1,54 +1,45 @@
-name: Create GitHub Release
+name: Releases
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Tag name for the release'
-        required: true
-      release_name:
-        description: 'Release name'
-        required: true
+  push:
+    tags: [ '*' ]
 
 jobs:
-  create-release:
+
+  release:
+    name: Publish release
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      - name: List artifacts
-        id: list-artifacts
+      # see https://github.com/marketplace/actions/download-workflow-artifact
+      - name: Download artifact
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: build-wheel.yml
+          path: wheels
+
+      - name: List wheels
         run: |
-          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts" \
-            | jq '.artifacts | map(select(.name | startswith("cadquery-ocp-")))[0]' > artifacts.json
+          mkdir dist
+          mv wheels/**/*.whl dist
+          rm -rf wheels
+          ls dist
 
-      - name: Download latest artifact
-        uses: actions/download-artifact@v4
+      # see https://github.com/marketplace/actions/create-release
+      - name: Create release
+        uses: ncipollo/release-action@v1
         with:
-          name: ${{ fromJson(steps.list-artifacts.outputs.artifacts).name }}
-          path: ./dist
+          artifacts: "dist/*.whl"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # see https://github.com/marketplace/actions/pypi-publish
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          tag_name: ${{ github.event.inputs.tag_name }}
-          release_name: ${{ github.event.inputs.release_name }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./dist/*.whl
-          asset_name: cadquery-ocp-${{ github.event.inputs.tag_name }}-cp3.11.whl
-          asset_content_type: application/zip
+          verbose: true
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          # For releasing to test.pypi.org
+          # password: ${{ secrets.PYPI_TEST_API_TOKEN }}
+          # repository_url: https://test.pypi.org/legacy/
 
