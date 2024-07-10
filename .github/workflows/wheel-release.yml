@@ -1,8 +1,7 @@
 name: Release 3.11 wheel
 
 on:
-  push:
-    tags: [ '*' ]
+  workflow_dispatch:
 
 jobs:
 
@@ -31,5 +30,6 @@ jobs:
         with:
           artifacts: "dist/*.whl"
           token: ${{ secrets.GITHUB_TOKEN }}
+
 
 
