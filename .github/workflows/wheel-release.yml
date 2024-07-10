@@ -1,107 +1,35 @@
-name: Build Python Wheel and release for MacOS-arm64 (3.12)
+name: Releases
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Tag name for the release'
-        required: true
-      release_name:
-        description: 'Release name'
-        required: true
-      release_body:
-        description: 'Description of the release'
-        required: true
-
-env:
-  PYTHONUTF8: 1
+  push:
+    tags: [ '*' ]
 
 jobs:
-  build:
-    name: Wheel for python ${{ matrix.python-version }}
-    runs-on: ${{ matrix.os }}
 
-    strategy:
-      matrix:
-        os: [ 'macos-14' ]  # macos-arm64 only
-        python-version: ['3.11']
-
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout project
-        uses: actions/checkout@v4
 
-      # see https://github.com/marketplace/actions/setup-miniconda
-      - name: Setup Conda
-        uses: conda-incubator/setup-miniconda@v3
+      # see https://github.com/marketplace/actions/download-workflow-artifact
+      - name: Download artifact
+        uses: dawidd6/action-download-artifact@v2
         with:
-          miniconda-version: latest
-          activate-environment: build-env
-          python-version: ${{ matrix.python-version }}
-          channels: cadquery, conda-forge, defaults
+          workflow: build-wheel.yml
+          path: wheels
 
-      - name: Remove temp files
-        shell: bash -l {0}
+      - name: List wheels
         run: |
-          rm -rf -v ./build
-          rm -rf -v ./cadquery_ocp.egg-info
+          mkdir dist
+          mv wheels/**/*.whl dist
+          rm -rf wheels
+          ls dist
 
-      - name: Run dependencies setup
-        shell: bash -l {0}
-        run: |
-          echo 'Building wheel for Python ${{ matrix.python-version }}'
-          echo 'Conda Deps Setup'
-          CONDA_SUBDIR=osx-arm64 conda create --yes -n ocp-build-system -c cadquery -c conda-forge python=${{ matrix.python-version }} ocp=7.7.2.* vtk=9.2.* pip
-          conda run -n ocp-build-system conda config --env --set subdir osx-arm64
-          conda run -n ocp-build-system pip install build setuptools wheel requests delocate auditwheel delvewheel
-
-      - name: Run wheel build
-        shell: bash -l {0}
-        run: |
-          conda run --live-stream -n ocp-build-system python -m build --no-isolation --wheel
-          
-      - name: Print info
-        shell: bash -l {0}
-        run: |
-          conda info
-          conda list --explicit
-          echo '${{ github.event_name }} ${{ github.ref }}'
-
-      - name: Test wheel
-        shell: bash -l {0}
-        run: |
-          conda deactivate
-          CONDA_SUBDIR=osx-arm64 conda create --yes -n cadquerytest python=${{ matrix.python-version }}
-          conda run -n cadquerytest conda config --env --set subdir osx-arm64
-          conda activate cadquerytest
-          python -m pip install dist/*.whl
-          python -c "import OCP;print('OCP imported successfully')"
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+      # see https://github.com/marketplace/actions/create-release
+      - name: Create release
+        uses: ncipollo/release-action@v1
         with:
-          name: cadquery-ocp-${{ matrix.os }}-cp${{ matrix.python-version }}
-          path: dist/*.whl
-
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.event.inputs.tag_name }}
-          release_name: ${{ github.event.inputs.release_name }}
-          body: ${{ github.event.inputs.release_body }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/*.whl
-          asset_name: cadquery-ocp-${{ matrix.os }}-cp${{ matrix.python-version }}.whl
-          asset_content_type: application/zip
+          artifacts: "dist/*.whl"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
 
