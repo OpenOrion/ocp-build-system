@@ -18,10 +18,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download artifact
+      - name: List artifacts
+        id: list-artifacts
+        run: |
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts" \
+            | jq '.artifacts | map(select(.name | startswith("cadquery-ocp-")))[0]' > artifacts.json
+
+      - name: Download latest artifact
         uses: actions/download-artifact@v4
         with:
-          name: cadquery-ocp-macos-14-cp3.11
+          name: ${{ fromJson(steps.list-artifacts.outputs.artifacts).name }}
           path: ./dist
 
       - name: Create GitHub Release
@@ -44,3 +51,4 @@ jobs:
           asset_path: ./dist/*.whl
           asset_name: cadquery-ocp-${{ github.event.inputs.tag_name }}-cp3.11.whl
           asset_content_type: application/zip
+
