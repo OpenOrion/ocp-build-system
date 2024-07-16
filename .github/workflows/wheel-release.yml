@@ -30,6 +30,12 @@ jobs:
           mv wheels/**/*.whl dist
           rm -rf wheels
           ls dist
+          
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.5.0
+        with:
+          user: ${{ secrets.PYPI_USERNAME }}
+          password: ${{ secrets.PYPI_PASSWORD }}
 
       # see https://github.com/marketplace/actions/create-release
       - name: Create release
