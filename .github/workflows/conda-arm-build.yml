@@ -1,4 +1,4 @@
-name: Create Python wheel using Conda
+name: Create ARM python wheel with conda
 
 on:
   workflow_dispatch
