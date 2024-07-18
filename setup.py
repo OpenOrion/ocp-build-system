@@ -374,7 +374,7 @@ while wheel_version.count(".") > 2 and wheel_version.endswith(".0"):
 #     wheel_version = "7.7.0"
 
 setup(
-    name="cadquery-ocp",
+    name="cadquery-ocp-arm-test",
     version=wheel_version,
     description="OCP wheel with shared library dependencies bundled.",
     long_description=open("README.md").read(),
